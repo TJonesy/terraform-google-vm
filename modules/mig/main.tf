@@ -26,6 +26,7 @@ locals {
     user    = var.distribution_policy_zones
   }
   distribution_policy_zones = local.distribution_policy_zones_base[length(var.distribution_policy_zones) == 0 ? "default" : "user"]
+  mig_name                  = var.mig_name == "default" ? var.hostname : var.mig_name
 }
 
 data "google_compute_zones" "available" {
@@ -39,11 +40,11 @@ resource "google_compute_region_instance_group_manager" "mig" {
   project            = var.project_id
 
   version {
-    name              = "${var.hostname}-mig-version-0"
+    name              = "${local.mig_name}-mig-version-0"
     instance_template = var.instance_template
   }
 
-  name   = var.mig_name == "default" ? "${var.hostname}-mig" : var.mig_name
+  name   = "${local.mig_name}-mig"
   region = var.region
   dynamic "named_port" {
     for_each = var.named_ports
@@ -103,7 +104,7 @@ resource "google_compute_region_instance_group_manager" "mig" {
 resource "google_compute_region_autoscaler" "autoscaler" {
   provider = google
   count    = var.autoscaling_enabled ? 1 : 0
-  name     = "${var.hostname}-autoscaler"
+  name     = "${local.mig_name}-autoscaler"
   project  = var.project_id
   region   = var.region
 
@@ -139,7 +140,7 @@ resource "google_compute_region_autoscaler" "autoscaler" {
 resource "google_compute_health_check" "http" {
   count   = var.health_check["type"] == "http" ? 1 : 0
   project = var.project_id
-  name    = "${var.hostname}-http-healthcheck"
+  name    = "${local.mig_name}-http-healthcheck"
 
   check_interval_sec  = var.health_check["check_interval_sec"]
   healthy_threshold   = var.health_check["healthy_threshold"]
@@ -158,7 +159,7 @@ resource "google_compute_health_check" "http" {
 resource "google_compute_health_check" "tcp" {
   count   = var.health_check["type"] == "tcp" ? 1 : 0
   project = var.project_id
-  name    = "${var.hostname}-tcp-healthcheck"
+  name    = "${local.mig_name}-tcp-healthcheck"
 
   timeout_sec         = var.health_check["timeout_sec"]
   check_interval_sec  = var.health_check["check_interval_sec"]
